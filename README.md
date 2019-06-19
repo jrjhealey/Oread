@@ -9,6 +9,8 @@ Presently, this package doesn't require installation, it does have several depen
  - Install `biopython` (very easy via `conda` with `$ conda install -c bioconda biopython`)
  - Ensure you have the BLAST+ suite installed (NOT legacy BLAST). Also very easy via `conda`:
   `$ conda install -c bioconda blast`
+ - Finally, the GUI depends on the non-standard module `Gooey`. Install it via `conda` with: `$conda install -c krrishnarraj gooey`
+  or via `pip` with `pythonw -m pip install gooey`
 
 # Running
 So far this has only been tested on MacOS. For this, a "framework" version of python is needed.
