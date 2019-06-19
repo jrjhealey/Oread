@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
 
-pythonw -m pip install biopython
+# Install conda
+
+# Install blast
+
 pythonw -m pip install gooey
