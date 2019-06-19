@@ -14,7 +14,7 @@ from Bio import SeqIO
 from Bio.Blast.Applications import NcbiblastnCommandline
 
 
-logging.basicConfig(format="[%(asctime)s] %(levelname)-8s \n -> %(message)s",
+logging.basicConfig(format="[%(asctime)s] %(levelname)-8s-> %(message)s",
                     level=logging.NOTSET, datefmt='%m/%d/%Y %I:%M:%S%p')
 logger = logging.getLogger(__name__)
 
@@ -22,17 +22,15 @@ logger = logging.getLogger(__name__)
 @Gooey(program_name="Oread - the companion to Artemis.",
        error_color="#cb4b16",
        header_bg_color="#2aa198",
-       default_size=(750, 550))
+       default_size=(800, 600))
 def get_args():
     """Parse command line arguments"""
     desc = (" /ˈɔːrɪad/\n"
             "Create genome comparison files for use with Artemis/ACT.")
-
-
     try:
         parser = GooeyParser(description=desc, prog="oread")
-        group = parser.add_argument_group()
-        group.add_argument(
+        main_group = parser.add_argument_group("Main options")
+        main_group.add_argument(
             "-s",
             "--subject",
             action="store",
@@ -41,7 +39,7 @@ def get_args():
             widget="FileChooser",
             help="Subject sequence file (.fasta)."
         )
-        group.add_argument(
+        main_group.add_argument(
             "-q",
             "--query",
             action="store",
@@ -50,13 +48,13 @@ def get_args():
             widget="FileChooser",
             help="Query sequence file (.fasta)."
         )
-        group.add_argument(
+        main_group.add_argument(
             "-o",
             "--outdir",
             action="store",
             metavar="Outdir comparison folder",
             widget="DirChooser",
-            help="Your outdir folder."
+            help="Your output directory."
         )
         # It seems running blast in this mode doesnt allow for multiple threads...
         # group.add_argument(
@@ -68,7 +66,7 @@ def get_args():
         #     choices=[str(x) for x in range(1, os.cpu_count()+1)],
         #     help="Number of threads for BLAST to use."
         # )
-        group.add_argument(
+        main_group.add_argument(
             "-k",
             "--keep_temp",
             metavar="Keep any temporary files produced.",
@@ -77,18 +75,54 @@ def get_args():
             default="False",
             help="Retain temporary files produced during the run."
         )
-        group.add_argument(
+        main_group.add_argument(
             "-t",
             "--task",
             metavar="Type of BLAST search.",
             widget="Dropdown",
             choices=["megablast", "dc-megablast", "blastn"],
-            default="blastn",
+            default="dc-megablast",
             help="What type of BLAST to run:\n"
                  " - Megablast for very similar sequences (e.g. sequencing errors)\n"
                  " - dc-megablast typically for inter-species comparison\n"
                  " - 'traditional' blastn for more dissimilar sequences."
         )
+        blast_options = parser.add_argument_group("Advanced BLAST options")
+        blast_options.add_argument(
+            "-e",
+            "--evalue",
+            action="store",
+            default=10.0,
+            type=float,
+            metavar="E-value cutoff.",
+            help="E-value cutoff for BLAST hits."
+        )
+        blast_options.add_argument(
+            "-p",
+            "--perc_id",
+            action="store",
+            default=0,
+            type=int,
+            metavar="Percentage ID cutoff.",
+            help="%ID cutoff for BLAST hits (Def = 0)."
+        )
+        blast_options.add_argument(
+            "--strand",
+            metavar="Which strand to search.",
+            default="both",
+            widget="Dropdown",
+            choices=["both", "plus", "minus"],
+            help="Limit matches to this strand."
+        )
+        blast_options.add_argument(
+            "--culling_limit",
+            metavar="Cull hits enveloped by this many other hits.",
+            default=0,
+            action="store",
+            type=int,
+            help="Cull hits enveloped by this many other hits. (Def = 0)"
+        )
+
 
     except NameError:
         sys.stderr.write("An exception occurred with argument parsing. Check your provided options.")
@@ -106,7 +140,7 @@ def format_outfile(args):
 
 def basename(string):
     """Abstraction/wrapper for file basenames from os.path"""
-    return os.path.splitext(os.path.abspath(string))[0]
+    return os.path.splitext(os.path.basename(os.path.abspath(string)))[0]
 
 
 def main():
@@ -126,6 +160,7 @@ def main():
         logger.info("No output directory specified, defaulting to: {}".format(args.outdir))
         logger.info("Comparison file will be stored at {}".format(outfile))
 
+    logging.basicConfig(filename="{}".format(os.path.join(args.outdir, "logfile.log")))
 # ACT cannot handle multiblast files (i.e. files generated from multifastas etc.
 # Therefore, a temporary concatenated file is needed.
 # Check if this is needed, and make temporary files as required.
@@ -148,13 +183,14 @@ def main():
                        "will still work with the unconcatenated sequences inside ACT.")
 
     if intermediate_query_needed or intermediate_subj_needed:
-        tempfile.tempdir = args.outdir
+        tempfile.tempdir = os.path.abspath(args.outdir)
+
         if intermediate_query_needed:
             logger.info("Creating intermediate files...")
             logger.info("Storing temporary files in {}".format(tempfile.tempdir))
 
-            with tempfile.NamedTemporaryFile(mode="w",prefix=basename(args.query),
-                                             suffix=".fa", delete=False) as iqry:
+            with tempfile.NamedTemporaryFile(mode="w", prefix=basename(args.query),
+                                             suffix=".fa", delete=False, dir=args.outdir) as iqry:
                 logger.info("Temporary query file is {}".format(iqry.name))
 
                 iqry.write(">{}_intermediate_concatenation\n".format(basename(args.query)))
@@ -162,13 +198,13 @@ def main():
                     iqry.write(str(record.seq.rstrip("\n")))
 
                 iqry.seek(0)
-                    # iqry.write("\n".join(wrap(data['Sequence'], 60)) + "\n")
+                    # iqry.write("\n".join(wrap(seq, 60)) + "\n")
                     # snippet for wrapping if desired later.
                 args.query = iqry.name
 
         if intermediate_subj_needed:
             with tempfile.NamedTemporaryFile(mode="w", prefix=basename(args.subject),
-                                             suffix=".fa", delete=False) as isub:
+                                             suffix=".fa", delete=False, dir=args.outdir) as isub:
                 logger.info("Temporary subject file is {}".format(isub.name))
 
                 isub.write(">{}_intermediate_concatenation\n".format(basename(args.subject)))
@@ -186,7 +222,8 @@ def main():
         query=args.query,
         subject=args.subject,
         outfmt=6,
-        out=outfile
+        out=outfile,
+        evalue=args.evalue
     )
 
     logger.info("Running BLASTn, as follows:")
@@ -195,10 +232,12 @@ def main():
     if stderr:
         sys.stderr.write(stderr)
 
-    if intermediate_query_needed:
-        os.unlink(args.query)
-    if intermediate_subj_needed:
-        os.unlink(args.query)
+    if not args.keep_temp:
+        logger.info("Clearing temporary files...")
+        if intermediate_query_needed:
+            os.unlink(args.query)
+        if intermediate_subj_needed:
+            os.unlink(args.query)
 
 if __name__ == "__main__":
     main()
