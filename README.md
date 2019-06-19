@@ -1,5 +1,9 @@
 # Oread
+_/ˈɔːrɪad/_
+
 A commandline and GUI tool for the creation of Artemis/Artemis Comparison Tool files.
+
+(A work in progress).
 
 # Installation
 Presently, this package doesn't require installation, it does have several dependencies though:
