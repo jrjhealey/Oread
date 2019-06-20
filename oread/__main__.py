@@ -224,7 +224,10 @@ def main():
         subject=args.subject,
         outfmt=6,
         out=outfile,
-        evalue=args.evalue
+        evalue=args.evalue,
+        culling_limit=args.culling_limit,
+        perc_identity=args.perc_id,
+        strand=args.strand
     )
 
     logger.info("Running BLASTn, as follows:")
@@ -233,12 +236,15 @@ def main():
     if stderr:
         sys.stderr.write(stderr)
 
-    if not args.keep_temp:
+    if args.keep_temp == "False":
         logger.info("Clearing temporary files...")
         if intermediate_query_needed:
             os.unlink(args.query)
         if intermediate_subj_needed:
-            os.unlink(args.query)
+            os.unlink(args.subject)
+
+    logger.info("All finished! Feedback/issues welcome @ https://github.com/jrjhealey/Oread")
+    logger.info("-"*74)
 
 if __name__ == "__main__":
     main()
