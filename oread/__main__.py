@@ -18,6 +18,9 @@ logging.basicConfig(format="[%(asctime)s] %(levelname)-8s-> %(message)s",
                     level=logging.NOTSET, datefmt='%m/%d/%Y %I:%M:%S%p')
 logger = logging.getLogger(__name__)
 
+nonbuffered_stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
+sys.stdout = nonbuffered_stdout
+
 
 @Gooey(program_name="Oread - the companion to Artemis.",
        error_color="#cb4b16",
