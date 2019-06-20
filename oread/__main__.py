@@ -2,6 +2,8 @@
 
 # TODO:
 # Consider incorporating a contig reorder?
+# Write a log/metadata file of run parameters for a given .act file
+# Need to add more DEBUG/ERROR/CRITICALs
 
 import os
 import sys
@@ -53,7 +55,7 @@ def get_args():
             "-o",
             "--outdir",
             action="store",
-            metavar="Outdir comparison folder",
+            metavar="Comparison file output folder",
             widget="DirChooser",
             help="Your output directory."
         )
@@ -82,7 +84,7 @@ def get_args():
             metavar="Type of BLAST search.",
             widget="Dropdown",
             choices=["megablast", "dc-megablast", "blastn"],
-            default="dc-megablast",
+            default="blastn",
             help="What type of BLAST to run:\n"
                  " - Megablast for very similar sequences (e.g. sequencing errors)\n"
                  " - dc-megablast typically for inter-species comparison\n"
@@ -123,6 +125,15 @@ def get_args():
             type=int,
             help="Cull hits enveloped by this many other hits. (Def = 0)"
         )
+        misc_options = parser.add_argument_group("Miscellaneous options")
+        misc_options.add_argument(
+            "-v",
+            "--verbose",
+            default="1",
+            choices=["0", "1", "2"],
+            metavar="Set verbosity level for logging.",
+            help="Change the verbosity of output (info/debug/errors)."
+        )
 
 
     except NameError:
@@ -146,9 +157,13 @@ def basename(string):
 
 def main():
     """Main method for creation of Artemis comparison files"""
+    args = get_args()
+
+    assert int(args.verbose) < 3, "verbose supports maximum 3 levels at present [0, 1, 2], got: {}".format(args.verbose)
+    levels_dict = {"0": logging.WARNING, "1": logging.INFO, "2": logging.DEBUG}
+    logging.getLogger().setLevel(levels_dict[args.verbose])
     logger.info("Launching {}...".format(__file__))
 
-    args = get_args()
 
 # Synthesise the outdir name, if the directory is specified, else synthesise both
 
@@ -178,7 +193,7 @@ def main():
     except ValueError:
         logger.warning("More than one sequence detected in the subject file.")
         intermediate_subj_needed = True
-    finally:
+    if (intermediate_subj_needed is True) or (intermediate_query_needed is True):
         logger.warning("ACT Comparison files require contiguous sequences. "
                        "Temporary files will be created, but the comparison file "
                        "will still work with the unconcatenated sequences inside ACT.")
@@ -243,8 +258,8 @@ def main():
         if intermediate_subj_needed:
             os.unlink(args.subject)
 
-    logger.info("All finished! Feedback/issues welcome @ https://github.com/jrjhealey/Oread")
-    logger.info("-"*74)
+    logger.info("All finished! Feedback/issues welcome @ https://github.com/jrjhealey/Oread \n"
+                + " "*35 + "="*74)
 
 if __name__ == "__main__":
     main()
