@@ -6,6 +6,7 @@
 # Need to add more DEBUG/ERROR/CRITICALs
 
 import os
+from os.path import basename, splitext, abspath
 import sys
 import logging
 import tempfile
@@ -143,16 +144,16 @@ def get_args():
     return parser.parse_args()
 
 
+def filename(string):
+    """Abstraction/wrapper for filenames from os.path"""
+    return splitext(basename(string))[0]
+
+
 def format_outfile(args):
     """Synthesise an outdir filename for the comparison file"""
     return os.path.join(args.outdir, "{}_vs_{}.act".format(
-            os.path.basename(os.path.splitext(args.subject)[0]),
-            os.path.basename(os.path.splitext(args.query)[0])))
-
-
-def basename(string):
-    """Abstraction/wrapper for file basenames from os.path"""
-    return os.path.splitext(os.path.basename(os.path.abspath(string)))[0]
+            filename(args.subject),
+            filename(args.query)))
 
 
 def main():
@@ -193,23 +194,22 @@ def main():
     except ValueError:
         logger.warning("More than one sequence detected in the subject file.")
         intermediate_subj_needed = True
+
     if (intermediate_subj_needed is True) or (intermediate_query_needed is True):
         logger.warning("ACT Comparison files require contiguous sequences. "
                        "Temporary files will be created, but the comparison file "
                        "will still work with the unconcatenated sequences inside ACT.")
-
-    if intermediate_query_needed or intermediate_subj_needed:
         tempfile.tempdir = os.path.abspath(args.outdir)
 
         if intermediate_query_needed:
             logger.info("Creating intermediate files...")
             logger.info("Storing temporary files in {}".format(tempfile.tempdir))
 
-            with tempfile.NamedTemporaryFile(mode="w", prefix=basename(args.query),
+            with tempfile.NamedTemporaryFile(mode="w", prefix=filename(args.query),
                                              suffix=".fa", delete=False, dir=args.outdir) as iqry:
                 logger.info("Temporary query file is {}".format(iqry.name))
 
-                iqry.write(">{}_intermediate_concatenation\n".format(basename(args.query)))
+                iqry.write(">{}_intermediate_concatenation\n".format(filename(args.query)))
                 for record in SeqIO.parse(args.query, "fasta"):
                     iqry.write(str(record.seq.rstrip("\n")))
 
@@ -219,11 +219,11 @@ def main():
                 args.query = iqry.name
 
         if intermediate_subj_needed:
-            with tempfile.NamedTemporaryFile(mode="w", prefix=basename(args.subject),
+            with tempfile.NamedTemporaryFile(mode="w", prefix=filename(args.subject),
                                              suffix=".fa", delete=False, dir=args.outdir) as isub:
                 logger.info("Temporary subject file is {}".format(isub.name))
 
-                isub.write(">{}_intermediate_concatenation\n".format(basename(args.subject)))
+                isub.write(">{}_intermediate_concatenation\n".format(filename(args.subject)))
                 for record in SeqIO.parse(args.subject, "fasta"):
                     isub.write(str(record.seq.rstrip("\n")))
 
@@ -258,8 +258,8 @@ def main():
         if intermediate_subj_needed:
             os.unlink(args.subject)
 
-    logger.info("All finished! Feedback/issues welcome @ https://github.com/jrjhealey/Oread \n"
-                + " "*35 + "="*74)
+    logger.info("All finished! Feedback/issues welcome @ https://github.com/jrjhealey/Oread")
+
 
 if __name__ == "__main__":
     main()
